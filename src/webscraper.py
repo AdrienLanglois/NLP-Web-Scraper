@@ -3,33 +3,40 @@ import requests
 from colorama import Fore
 import re
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
+from utils import save_json
 
 ARTICLE_LIMIT = 300
 
 # return true if the article is more than a week old
 def is_old(date: str) -> bool:
-    
     # ignore the article if date not found (date == None)
     if not date:
         return True
     
     # extract relevant date info
     pattern = r"[a-zA-Z]+ \d+, \d{4}"
-    date = re.findall(pattern, date.text)[0]
-    
+    date = re.findall(pattern, date.text)
+    if len(date) == 0:
+        return True
+    date = date[0]
     article_date = datetime.strptime(date, '%B %d, %Y')
     today = datetime.now()
     difference = today - article_date
     
     return int(difference.days) > 7
 
+#############################
+########### CNN #############
+#############################
+
 def get_CNN_links():
     
     base_url = 'https://edition.cnn.com/'
     topics = ['', 'world', 'politics', 'health', 'entertainment', 'tech', 'sport', 'weather']
-    article_links = []
+    article_links = set()
     
+    # browse every topic on the CNN website
     for topic in topics:        
         full_url = base_url+topic
         response = requests.get(full_url)
@@ -38,17 +45,16 @@ def get_CNN_links():
             continue
         
         soup = BeautifulSoup(response.text, 'lxml') 
-        
-        links = [
+        topic_links = [
             a['href']
             for a in soup.find_all('a', class_='container__link')
             if a
         ]
         
-        for l in links: article_links.append(l)
+        for l in topic_links: article_links.add(l)
         
-    print(f'\n {len(article_links)} articles found')
-    return article_links[:ARTICLE_LIMIT]
+    print(f'\n{len(article_links)} articles found')
+    return list(article_links)[:ARTICLE_LIMIT]
     
 
 def scrap_CNN():
@@ -57,6 +63,7 @@ def scrap_CNN():
     # search for article links    
     links = get_CNN_links()
     scraped_articles = []
+    errors = [] # count amount of article we were not able to read
     
     for i,link in enumerate(links):
         
@@ -64,33 +71,41 @@ def scrap_CNN():
         sys.stdout.write(f"\rreading articles... {i}/{len(links)} [{int(100 * i/len(links))}%]")
         sys.stdout.flush()
         
+        # access the link
         if not link.startswith('http'):
             link = 'https://edition.cnn.com' + link
         
         response = requests.get(link)
         if response.status_code != 200:
-            print(f'\nFailed to access the article: {response.status_code}')
+            errors.append(response.status_code)
             continue
         
+        # scrap article
         soup = BeautifulSoup(response.text, 'lxml')
         
         date = soup.find('div', class_='timestamp')
-        
         if is_old(date):
             continue
         
-        date = date.text.replace(r" +"," ")
+        date = re.findall(r"[a-zA-Z]+ \d+, \d{4}", date.text)[0] # clean date
         title = soup.find('h1').text
         content = [p.text for p in soup.find_all('p')]
         
+        # clean article
         scraped_articles.append({
             'url': link,
             'date': date,
-            'title': title,
-            'body': content
+            'title': title.strip().replace('\n',''),
+            'body': " ".join(content).replace('\n','').strip()
         })
     
-    return scraped_articles
+    print(Fore.YELLOW + f'\n{len(errors)} errors : {errors}' + Fore.RESET)
+    save_json(scraped_articles, 'CNN.json')
+
+#############################
+########### IGN #############
+#############################
+
 
 def scrap_IGN(url):
     # make a request to the website
@@ -103,14 +118,20 @@ def scrap_IGN(url):
     soup = BeautifulSoup(response.text, 'lxml')
     
     sections = soup.find_all('article', limit=ARTICLE_LIMIT)
-    links = [section.a['href'] for section in sections if section.a]
+    
+    print('searching articles on IGN')
+    links = set([section.a['href'] for section in sections if section.a])
     
     scraped_articles = []
     
-    print('reading articles ...')
+    print(f'{len(links)} articles found\nreading articles ...')
     
     # scrap every articles found
-    for link in links:
+    for i, link in enumerate(links):
+        sys.stdout.write(f"\rreading articles... {i}/{len(links)} [{int(100 * i/len(links))}%]")
+        sys.stdout.flush()
+        
+        
         if not link.startswith('http'):
             link = url + link
         
@@ -120,15 +141,12 @@ def scrap_IGN(url):
             continue
         
         soup = BeautifulSoup(response.text, 'lxml')
+        
         date = soup.find('div', class_='article-publish-date')
         if not date:
             continue
-        date = date.span.text        
         
-        #########################################################
-        ######## TO DO : ignore old article (>1 week) #########
-        #######################################################
-        
+        date = date.span.text  
         title = soup.h1.text
         content = [p.text for p in soup.find_all('p')]
         
@@ -140,11 +158,11 @@ def scrap_IGN(url):
         })
                 
     print(f'Finished ! {len(scraped_articles)} article found')
-    return scraped_articles
+    save_json(scraped_articles, 'IGN.json')
 
 def scrap(user_selection:int):
     match user_selection:
-        case 1: return scrap_CNN()
-        case 2: return scrap_IGN('https://fr.ign.com/') # IGN FR
-        case 3: return scrap_IGN('https://me.ign.com/en/') # IGN EN
+        case 1: scrap_CNN()
+        case 2: scrap_IGN('https://fr.ign.com/') # IGN FR
+        case 3: scrap_IGN('https://me.ign.com/en/') # IGN EN
         case _: print('ERROR : bad user selection')
