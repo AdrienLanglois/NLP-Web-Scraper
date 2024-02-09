@@ -5,6 +5,7 @@ dependencies:
   - python=3.8
   - pandas
   - numpy
+  - scipy
   - scikit-learn
   - beautifulsoup4
   - lxml
