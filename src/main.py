@@ -48,7 +48,7 @@ def main():
         analysis.print_sentiment_results(body_sentiment_results)
         
         # scandal detection
-        scandal_metric, scandal_sentence = analysis.detect_scandal_v2(companies, title + body)
+        scandal_metric, scandal_sentence = analysis.detect_scandal(companies, title + body)
 
 if __name__ == '__main__':
     main()
