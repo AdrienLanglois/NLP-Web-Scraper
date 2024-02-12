@@ -1,13 +1,13 @@
 import spacy
 from textblob import TextBlob
-import en_core_web_sm
 from colorama import Fore
-import seaborn as sns
 import pandas as pd
 from math import sqrt
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+from sklearn.feature_extraction.text import TfidfVectorizer
+
 ############ print results #################
 
 def print_company_results(companies):
@@ -60,26 +60,7 @@ def search_companies(article_content:str):
     print_company_results(companies)
     return companies
 
-def plot_heat_map(text):
-    nlp = en_core_web_sm.load()
-    tokens = nlp(text)
-    embeddings = [token.vector for token in tokens]
 
-    for elem in tokens:
-        print(elem)
-    
-    # Compute pairwise cosine distances
-    cosine_distances = np.zeros((len(embeddings), len(embeddings)))
-
-    for i in range(len(embeddings)):
-        for j in range(len(embeddings)):
-            cosine_distances[i, j] = cosine(embeddings[i], embeddings[j])
-
-    # Plot the HeatMap
-    # sns.heatmap(cosine_distances, xticklabels=tokens, yticklabels=tokens, annot=True, cmap="viridis")
-    # plt.title("Pairwise Cosine Distances between Words")
-    # plt.show()
-    
     
 ################# Scandal Detection ########################""
     
@@ -143,8 +124,28 @@ def detect_scandal(companies, text):
 
 # topic detection
         
-def detect_topic():
+def detect_topic(article):
     print('------------ topic detection -------------')
     
+    tfidf_vectorizer = TfidfVectorizer(max_features=1000)
+    X = tfidf_vectorizer.fit_transform(article)
+        
+    model = pickle.load(open('results/topic_classifier.pkl', 'rb'))
+    predictions = list(model.predict(X))
     
+    # decode prediction
+    topic_decoder = {1:'tech', 2:'sport', 3:'buisness', 4:'entertainment', 5:'politics'}
+    for i, pred in enumerate(predictions):
+        predictions[i] = topic_decoder[pred]
+    
+    return predictions
+    
+    
+def top_10_scandal(df:pd.DataFrame) -> pd.DataFrame:
+    pd.options.mode.chained_assignment = None  # ignore warning
+    
+    scandalous_idx = df['scandal metric'].sort_values(ascending=False).head(10).index
+    df['top 10'] = False
+    df['top 10'].iloc[scandalous_idx] = True
+    return df
     

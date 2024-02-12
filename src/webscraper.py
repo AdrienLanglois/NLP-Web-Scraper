@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 from utils import save_json
 
-ARTICLE_LIMIT = 300
+ARTICLE_LIMIT = 100
 
 # return true if the article is more than a week old
 def is_old(date: str) -> bool:
