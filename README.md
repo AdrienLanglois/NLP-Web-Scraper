@@ -1,4 +1,4 @@
- NLP-Web-Scraper
+# NLP-Web-Scraper
 
 In one word, this project consists of an application that keeps abreast of current events : *The analysts get their information from the news and the amount of available information is limitless. Having a platform that helps to detect the relevant information is definitely valuable.*
 
