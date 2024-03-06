@@ -2,8 +2,6 @@ import spacy
 from textblob import TextBlob
 from colorama import Fore
 import pandas as pd
-from math import sqrt
-import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
